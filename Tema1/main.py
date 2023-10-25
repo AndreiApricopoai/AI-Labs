@@ -1,5 +1,7 @@
 from math import sqrt
-import time
+from queue import PriorityQueue
+from datetime import datetime
+import copy
 
 # GENERATE INIT STATE
 def from_vector_to_matrix_init(vec):
@@ -57,9 +59,6 @@ def generate_final_states():
 
 # ------------------------------------------------------------------------------------------------------------------------------
 
-# MAKE A FUNCTION THAT TAKES AS PARAMETER A MATRIX, A LAST MOVE CELL AND A DIRECTION(STRING UP,DOWN,RIGHT,LEFT) (TO MOVE THE CELL 0 IN THAT DIRECTION)
-# AND RETURN THE NEW MATRIX AND THE NEW LAST MOVE CELL, VERIFYING IF THE MOVE IS POSSIBLE (A CELL CAN BE MOVED JUST IN THE POSITION WHERE IS 0 )
-
 def verify_transition(matrix, last_move_cell, cell_to_move, direction):
     cell_to_move_row, cell_to_move_col = cell_to_move
 
@@ -114,19 +113,24 @@ def verify_transition(matrix, last_move_cell, cell_to_move, direction):
 
 def transition(matrix, last_move_cell, cell_to_move, direction):
     verify_move_ok = verify_transition(matrix, last_move_cell, cell_to_move, direction)
+
     if verify_move_ok == True:
+        # Create a deep copy of the matrix
+        new_matrix = copy.deepcopy(matrix)
+
         cell_to_move_row, cell_to_move_col = cell_to_move
-        # Găsim poziția elementului 0 în matrice
-        if (matrix[cell_to_move_row][cell_to_move_col] != 0):
+
+        if new_matrix[cell_to_move_row][cell_to_move_col] != 0:
             for i in range(3):
                 for j in range(3):
-                    if matrix[i][j] == 0:
+                    if new_matrix[i][j] == 0:
                         zero_row, zero_col = i, j
 
-            matrix[zero_row][zero_col] = matrix[cell_to_move_row][cell_to_move_col]
-            matrix[cell_to_move_row][cell_to_move_col] = 0
-            last_move_cell = (zero_row, zero_col, matrix[zero_row][zero_col])
-            return matrix, last_move_cell
+            new_matrix[zero_row][zero_col] = new_matrix[cell_to_move_row][cell_to_move_col]
+            new_matrix[cell_to_move_row][cell_to_move_col] = 0
+            last_move_cell = (zero_row, zero_col, new_matrix[zero_row][zero_col])
+
+            return new_matrix, last_move_cell
         else:
             if direction == "UP":
                 new_row, new_col = cell_to_move_row - 1, cell_to_move_col
@@ -137,105 +141,248 @@ def transition(matrix, last_move_cell, cell_to_move, direction):
             elif direction == "RIGHT":
                 new_row, new_col = cell_to_move_row, cell_to_move_col + 1
 
-            matrix[cell_to_move_row][cell_to_move_col] = matrix[new_row][new_col]
-            matrix[new_row][new_col] = 0
-            last_move_cell = (cell_to_move_row, cell_to_move_col, matrix[cell_to_move_row][cell_to_move_col])
-            return matrix, last_move_cell
+            new_matrix[cell_to_move_row][cell_to_move_col] = new_matrix[new_row][new_col]
+            new_matrix[new_row][new_col] = 0
+            last_move_cell = (cell_to_move_row, cell_to_move_col, new_matrix[cell_to_move_row][cell_to_move_col])
+
+            return new_matrix, last_move_cell
     else:
         return matrix, last_move_cell
 
 def IDDFS(init_state, max_depth):
     for depth in range(max_depth + 1):
         visited = set()
-        solution = depth_limited_DFS(init_state, depth, visited)
+        moves_count = 0
+        solution = depth_limited_DFS(init_state, depth, visited, moves_count)
         if solution is not None:
             return solution
-    return None
+    return None, None
 
-def depth_limited_DFS(state, depth, visited):
+def depth_limited_DFS(state, depth, visited, moves_count):
     if is_final_state(state[0]):  # Check if the matrix is in the final state
-        return state
+        return state, moves_count
     if depth == 0:
         return None
 
     visited.add(tuple(map(tuple, state[0])))
-
-    # for state 0 print each line
-
 
     for i in range(3):
         for j in range(3):
             if verify_transition(state[0], state[1], (i, j), "UP"):
                 new_state, new_last_moved_cell = transition(state[0], state[1], (i, j), "UP")
                 if tuple(map(tuple, new_state)) not in visited:
-                    result = depth_limited_DFS((new_state, new_last_moved_cell), depth - 1, visited)
+                    moves_count += 1
+                    result = depth_limited_DFS((new_state, new_last_moved_cell), depth - 1, visited, moves_count)
                     if result is not None:
                         return result
 
             if verify_transition(state[0], state[1], (i, j), "DOWN"):
                 new_state, new_last_moved_cell = transition(state[0], state[1], (i, j), "DOWN")
                 if tuple(map(tuple, new_state)) not in visited:
-                    result = depth_limited_DFS((new_state, new_last_moved_cell), depth - 1, visited)
+                    moves_count += 1
+                    result = depth_limited_DFS((new_state, new_last_moved_cell), depth - 1, visited, moves_count)
                     if result is not None:
                         return result
 
             if verify_transition(state[0], state[1], (i, j), "LEFT"):
                 new_state, new_last_moved_cell = transition(state[0], state[1], (i, j), "LEFT")
                 if tuple(map(tuple, new_state)) not in visited:
-                    result = depth_limited_DFS((new_state, new_last_moved_cell), depth - 1, visited)
+                    moves_count += 1
+                    result = depth_limited_DFS((new_state, new_last_moved_cell), depth - 1, visited, moves_count)
                     if result is not None:
                         return result
 
             if verify_transition(state[0], state[1], (i, j), "RIGHT"):
                 new_state, new_last_moved_cell = transition(state[0], state[1], (i, j), "RIGHT")
                 if tuple(map(tuple, new_state)) not in visited:
-                    result = depth_limited_DFS((new_state, new_last_moved_cell), depth - 1, visited)
+                    moves_count += 1
+                    result = depth_limited_DFS((new_state, new_last_moved_cell), depth - 1, visited, moves_count)
                     if result is not None:
                         return result
+
     return None
 
+# implement manhattan heuristic, use the final states
+def manhattan_heuristic(state):
+    final_states = generate_final_states()
+    min = 10000000
+    for i in range(len(final_states)):
+        sum = 0
+        for j in range(3):
+            for k in range(3):
+                if state[j][k] != 0:
+                    for l in range(3):
+                        for m in range(3):
+                            if state[j][k] == final_states[i][l][m]:
+                                sum += abs(j - l) + abs(k - m)
+        if sum < min:
+            min = sum
+    return min
 
-if __name__ == '__main__':
-    #calculate the time, take init time
-    start_time = time.time()
-    x = [2, 5, 3, 1, 0, 6, 4, 7, 8]
-    init_state, last_moved_cell = from_vector_to_matrix_init(x)
-    max_depth = 15
-    solution = IDDFS((init_state, last_moved_cell), max_depth)
+#implement hamming heuristic, use the final states
+def hamming_heuristic(state):
+    final_state = generate_final_states()[0]  # Assume we're working with the first final state
 
-    if solution is not None:
-        finish_time = time.time()
-        print("Time: ", finish_time - start_time)
-        print("Solution found:")
-        for row in solution[0]:
+    # Flatten the current state and final state matrices
+    flat_state = [value for row in state for value in row]
+    flat_final_state = [value for row in final_state for value in row]
+
+    # Count the number of misplaced tiles
+    misplaced_count = sum(1 for s, f in zip(flat_state, flat_final_state) if s != f and s != 0)
+
+    return misplaced_count
+
+
+#implement CHEBYSHEV DISTANCE heuristic, use the final states
+def chebyshev_heuristic(state):
+    final_states = generate_final_states()
+    min = 10000000
+    for i in range(len(final_states)):
+        sum = 0
+        for j in range(3):
+            for k in range(3):
+                if state[j][k] != 0:
+                    for l in range(3):
+                        for m in range(3):
+                            if state[j][k] == final_states[i][l][m]:
+                                sum += max(abs(j - l), abs(k - m))
+        if sum < min:
+            min = sum
+    return min
+
+#implement greedy search for a state + heuristic
+def greedy_search(initial_state, heuristic_fn):
+    # Initialize a priority queue (heap)
+    priority_queue = PriorityQueue()
+    # Create a set to keep track of visited states
+    visited = set()
+    # Push the initial state with its heuristic value to the queue
+    priority_queue.put((heuristic_fn(initial_state[0]), initial_state))
+
+    iterations = 0
+
+    while not priority_queue.empty():
+        # Get the state with the bigest heuristic value
+
+        '''
+        print("plm")
+        priority_queue_aux = PriorityQueue()
+        while not priority_queue.empty():
+            item = priority_queue.get()
+            priority_queue_aux.put((item[0], item[1]))
+            print("Priority:", item[0], "Item:", item[1])
+        while not priority_queue_aux.empty():
+            item = priority_queue_aux.get()
+            priority_queue.put((item[0], item[1]))
+        '''
+        current_state_1 = priority_queue.get()
+
+        #print (current_state_1)
+
+        current_state = current_state_1[1]
+
+        # Check if the current state is the goal state
+        if is_final_state(current_state[0]):
+            return current_state, iterations
+
+        iterations += 1
+
+        # Add the current state to the visited set
+        visited.add(tuple(map(tuple, current_state[0])))
+
+        # Generate and check all possible next states
+        for i in range(3):
+            for j in range(3):
+                if verify_transition(current_state[0], current_state[1], (i, j), "UP"):
+                    new_state1, new_last_moved_cell1 = transition(current_state[0], current_state[1], (i, j), "UP")
+                    state_tuple = tuple(map(tuple, new_state1))
+                    if state_tuple not in visited:
+                        visited.add(state_tuple)
+                        priority_queue.put((heuristic_fn(new_state1), (new_state1, new_last_moved_cell1)))
+
+                if verify_transition(current_state[0], current_state[1], (i, j), "DOWN"):
+                    new_state2, new_last_moved_cell2 = transition(current_state[0], current_state[1], (i, j), "DOWN")
+                    state_tuple = tuple(map(tuple, new_state2))
+                    if state_tuple not in visited:
+                        visited.add(state_tuple)
+                        priority_queue.put((heuristic_fn(new_state2), (new_state2, new_last_moved_cell2)))
+
+                if verify_transition(current_state[0], current_state[1], (i, j), "LEFT"):
+                    new_state3, new_last_moved_cell3 = transition(current_state[0], current_state[1], (i, j), "LEFT")
+                    state_tuple = tuple(map(tuple, new_state3))
+                    if state_tuple not in visited:
+                        visited.add(state_tuple)
+                        priority_queue.put((heuristic_fn(new_state3), (new_state3, new_last_moved_cell3)))
+
+                if verify_transition(current_state[0], current_state[1], (i, j), "RIGHT"):
+                    new_state4, new_last_moved_cell4 = transition(current_state[0], current_state[1], (i, j), "RIGHT")
+                    state_tuple = tuple(map(tuple, new_state4))
+                    if state_tuple not in visited:
+                        visited.add(state_tuple)
+                        priority_queue.put((heuristic_fn(new_state4), (new_state4, new_last_moved_cell4)))
+
+    return None
+
+# Helper function to format and print results
+def print_results(strategy_name, instance_index, result, time_elapsed, moves_count=0):
+    if result:
+        state, moves = result
+        print(f"Strategy: {strategy_name}")
+        print(f"Instance {instance_index + 1}:")
+        print("Solution:")
+        for row in state:
             print(row)
+        print(f"Last move cell: {moves}")
+        print(f"Number of moves: {moves_count}")
+        print(f"Execution time: {time_elapsed:.6f} seconds")
+        print("-" * 30)
     else:
-        print("No solution found within the maximum depth.")
+        print(f"Strategy: {strategy_name}")
+        print(f"Instance {instance_index + 1}: No solution found")
+        print("-" * 30)
 
-    start_time = time.time()
-    x = [8, 6, 7, 2, 5, 4, 0, 3, 1]
-    init_state, last_moved_cell = from_vector_to_matrix_init(x)
-    solution = IDDFS((init_state, last_moved_cell), max_depth)
 
-    if solution is not None:
-        finish_time = time.time()
-        print("Time: ", finish_time - start_time)
-        print("Solution found:")
-        for row in solution[0]:
+if __name__ == "__main__":
+    # Define the initial puzzle instances
+    initial_instances = [
+        [8, 6, 7, 2, 5, 4, 0, 3, 1],
+        [2, 5, 3, 1, 0, 6, 4, 7, 8],
+        [2, 7, 5, 0, 8, 4, 3, 1, 6]
+    ]
+# Run strategies for all instances
+    for instance_index, initial_state in enumerate(initial_instances):
+        print(f"Initial State for Instance {instance_index + 1}:")
+        for row in from_vector_to_matrix_init(initial_state)[0]:
             print(row)
-    else:
-        print("No solution found within the maximum depth.")
+        print("-" * 30)
 
-    start_time = time.time()
-    x = [2, 7, 5, 0, 8, 4, 3, 1, 6]
-    init_state, last_moved_cell = from_vector_to_matrix_init(x)
-    solution = IDDFS((init_state, last_moved_cell), max_depth)
+        # IDDFS
+        start_time = datetime.now()
+        iddfs_result, depth = IDDFS(from_vector_to_matrix_init(initial_state), 45)  # You can adjust the max depth
+        end_time = datetime.now()
+        iddfs_time_elapsed = (end_time - start_time).total_seconds()
+        print_results("IDDFS", instance_index, iddfs_result, iddfs_time_elapsed, depth)
 
-    if solution is not None:
-        finish_time = time.time()
-        print("Time: ", finish_time - start_time)
-        print("Solution found:")
-        for row in solution[0]:
-            print(row)
-    else:
-        print("No solution found within the maximum depth.")
+        # Greedy Search with Manhattan Heuristic
+        start_time = datetime.now()
+        greedy_manhattan_result, iterations = greedy_search(from_vector_to_matrix_init(initial_state), manhattan_heuristic)
+        end_time = datetime.now()
+        greedy_manhattan_time_elapsed = (end_time - start_time).total_seconds()
+        print_results("Greedy (Manhattan)", instance_index, greedy_manhattan_result, greedy_manhattan_time_elapsed, iterations)
+
+        # Greedy Search with Hamming Heuristic
+        start_time = datetime.now()
+        greedy_hamming_result, iterations = greedy_search(from_vector_to_matrix_init(initial_state), hamming_heuristic)
+        end_time = datetime.now()
+        greedy_hamming_time_elapsed = (end_time - start_time).total_seconds()
+        print_results("Greedy (Hamming)", instance_index, greedy_hamming_result, greedy_hamming_time_elapsed, iterations)
+
+        # Greedy Search with Chebyshev Heuristic
+        start_time = datetime.now()
+        greedy_chebyshev_result, iterations = greedy_search(from_vector_to_matrix_init(initial_state), chebyshev_heuristic)
+        end_time = datetime.now()
+        greedy_chebyshev_time_elapsed = (end_time - start_time).total_seconds()
+        print_results("Greedy (Chebyshev)", instance_index, greedy_chebyshev_result, greedy_chebyshev_time_elapsed, iterations)
+
+
+
